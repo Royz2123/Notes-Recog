@@ -1,37 +1,3 @@
-// **********************************************************************************
-//
-// BSD License.
-// This file is part of a Hough Transformation tutorial,
-// see: http://www.keymolen.com/2013/05/hough-transformation-c-implementation.html
-//
-// Copyright (c) 2013, Bruno Keymolen, email: bruno.keymolen@gmail.com
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without modification,
-// are permitted provided that the following conditions are met:
-//
-// Redistributions of source code must retain the above copyright notice,
-// this list of conditions and the following disclaimer.
-// Redistributions in binary form must reproduce the above copyright notice, this
-// list of conditions and the following disclaimer in the documentation and/or other
-// materials provided with the distribution.
-// Neither the name of "Bruno Keymolen" nor the names of its contributors may be
-// used to endorse or promote products derived from this software without specific
-// prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-// IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
-// INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-// NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
-//
-// **********************************************************************************
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
@@ -162,9 +128,8 @@ void doTransform(std::string file_path, int threshold)
 
 	int w = img_edge.cols;
 	int h = img_edge.rows;
-
 	//Transform
-	keymolen::Hough hough;
+	Hough hough;
 	hough.Transform(img_edge.data, w, h);
 
 	if(threshold == 0)
@@ -201,7 +166,7 @@ void doTransform(std::string file_path, int threshold)
 			// add to our vector of horizontal lines
 			if (lineSlope > MAX_SLOPE) {
 				horizontal.push_back(std::make_pair(lineIt->first, lineIt->second));
-			} else {
+			} else if (lineSlope < MIN_SLOPE) {
 				vertical.push_back(std::make_pair(lineIt->first, lineIt->second));
 			}
 		}
@@ -228,12 +193,14 @@ void doTransform(std::string file_path, int threshold)
 
 		    /* Crop the original image to the defined ROI */
 				// save image
-				img_crop = img_res(roi);
-				out << barIndex;
-				std::string path = CROPPED_BARS_PATH + out.str() + ".jpg";
-				cv::imwrite(path, img_crop);
-				out.str(std::string());
-				barIndex++;
+				if(roi.area() > 0) {
+			  	img_crop = img_res(roi);
+					out << barIndex;
+					std::string path = CROPPED_BARS_PATH + out.str() + ".jpg";
+					cv::imwrite(path, img_crop);
+					out.str(std::string());
+					barIndex++;
+				}
 			}
 		}
 
@@ -342,6 +309,7 @@ void findColumns(
 	int imageSize
 ) {
 	// spaces vector
+	std::vector<line> largeVerticals;
 	std::vector<row> spaces;
 	row currRow;
 
@@ -358,13 +326,15 @@ void findColumns(
 			lineIt->first.first < LEFT_BORDER
 			|| lineIt->first.first > (imageSize - RIGHT_BORDER)
 		) {
-			vertical.erase(lineIt);
+			// push 2 points into the new vector
+			largeVerticals.push_back(make_pair(lineIt->first, lineIt->second));
 		}
 	}
 
+
 	// find all the spaces (don't add small ones)
 	float currDist;
-	for(lineIt=vertical.begin();lineIt!=vertical.end()-1;lineIt++) {
+	for(lineIt=largeVerticals.begin();lineIt!=largeVerticals.end()-1;lineIt++) {
 		// start of row
 		currDist = (lineIt+1)->first.first - lineIt->first.first;
 		if (currDist > MIN_BAR_SIZE) {
@@ -378,10 +348,12 @@ void findColumns(
 
 	// no shifting, the ones we want are spaced out.
 	// however remove whitespace from beginning and end
-	spaces.erase(spaces.begin());
-	spaces.erase(spaces.end());
-	columns = spaces;
+	if (spaces.size() > 2)
+		spaces.erase(spaces.begin());
+	if (spaces.size() > 1)
+		spaces.erase(spaces.end());
 
+	columns = spaces;
 	printRows(spaces);
 }
 

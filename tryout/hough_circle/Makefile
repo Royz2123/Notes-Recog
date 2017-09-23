@@ -1,6 +1,3 @@
-# (C)2013, Bruno Keymolen
-# http://www.keymolen.com
-# http://www.keymolen.com/2013/05/hough-transformation-c-implementation.html
 CXX=g++
 CC=gcc
 #OPTFLAGS=-g3 -ggdb -O0
@@ -15,8 +12,8 @@ CXXFLAGS+= -I/opt/keymolen/opencv/2.4.8/include/
 LDFLAGS+= -lopencv_highgui -lopencv_core -lopencv_calib3d -lopencv_features2d -lopencv_flann -lopencv_imgproc -lopencv_objdetect -lopencv_ts
 
 SRC = 	main.o hough.o hough_circle.o
-	
-all: hough 
+
+all: hough
 
 hough: $(SRC) $(MODULES)
 	$(CXX) $(MODULES) $(SRC) $(LDFLAGS) -o hough
