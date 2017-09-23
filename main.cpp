@@ -16,13 +16,10 @@
 #define MAX_SLOPE 10
 #define MIN_SLOPE 0.5
 
-#define ROWS_SPACING 4
-#define COLUMNS_SPACING 10
-
 #define LEFT_BORDER 20
 #define RIGHT_BORDER 20
-#define TOP_BORDER 20
-#define BOTTOM_BORDER 20
+#define TOP_BORDER 10
+#define BOTTOM_BORDER 10
 
 #define MIN_BAR_HEIGHT 20
 #define MIN_BAR_WIDTH 30
@@ -205,6 +202,10 @@ void doTransform(std::string file_path, int threshold)
 		    roi.width = rectBottomLeftX - rectTopLeftX;
 		    roi.height = rectBottomLeftY - rectTopLeftY + 2*TOP_BAR_PADDING;
 
+				// normalizations
+				roi.y = (roi.y < 0) ? 0 : roi.y;
+				roi.height = (roi.y + roi.height > img_res.rows) ? img_res.rows - roi.y : roi.height;
+
 		    /* Crop the original image to the defined ROI */
 				// save image
 				if(roi.area() > 0) {
@@ -312,7 +313,7 @@ void findSpaces(
 		return;
 	}
 
-	for(lineIt=lines.begin();lineIt!=lines.end()-1;lineIt++) {
+	for(lineIt=lines.begin();lineIt < lines.end()-1;lineIt++) {
 		// start of row
 		if (vertical) {
 			currDist = (lineIt+1)->first.first - lineIt->first.first;
@@ -386,10 +387,8 @@ void findRows(
 	if(!spaces.size()){
 		return;
 	}
-	// now "shift" the pairs we have created so they match the rows
-	for(rowIt=spaces.begin();rowIt!=spaces.end()-1;rowIt++) {
-		rows.push_back(make_pair(rowIt->second, (rowIt+1)->first));
-	}
+
+	rows = spaces;
 }
 
 void findColumns(
@@ -430,8 +429,8 @@ void printRows(std::vector<row>& rows) {
 
 	// print out distances
 	for(rowIt=rows.begin();rowIt!=rows.end();rowIt++) {
-		firstLineX = rowIt->first.first.first;
-		secondLineX = rowIt->second.first.first;
+		firstLineX = rowIt->first.first.second;
+		secondLineX = rowIt->second.first.second;
 		std::cout << "|" << firstLineX << "\t"  << secondLineX << "|" << std::endl;
 	}
 }
