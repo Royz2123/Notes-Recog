@@ -27,7 +27,10 @@
 // padding on top of each bar for other notes
 #define TOP_BAR_PADDING 10
 
+#define SEGMENTS 4
+
 #define CROPPED_BARS_PATH "./cropped_bars/bar"
+#define CROPPED_NOTES_PATH "./cropped_notes/note"
 
 extern FILE *stdin;
 extern FILE *stdout;
@@ -188,7 +191,7 @@ void doTransform(std::string file_path, int threshold)
 		findColumns(vertical, columns, img_res.cols);
 
 		// now crop based on each row
-		int barIndex = 0;
+		int noteIndex = 0;
 		for(rowIt=rows.begin();rowIt!=rows.end();rowIt++) {
 			for(rowIt2=columns.begin();rowIt2!=columns.end();rowIt2++) {
 				// each iteration gives us a bar!
@@ -199,7 +202,7 @@ void doTransform(std::string file_path, int threshold)
 
 				roi.x = rectTopLeftX;
 		    roi.y = rectTopLeftY - TOP_BAR_PADDING;
-		    roi.width = rectBottomLeftX - rectTopLeftX;
+		    roi.width = (rectBottomLeftX - rectTopLeftX) / SEGMENTS;
 		    roi.height = rectBottomLeftY - rectTopLeftY + 2*TOP_BAR_PADDING;
 
 				// normalizations
@@ -209,12 +212,18 @@ void doTransform(std::string file_path, int threshold)
 		    /* Crop the original image to the defined ROI */
 				// save image
 				if(roi.area() > 0) {
-			  	img_crop = img_res(roi);
-					out << barIndex;
-					std::string path = CROPPED_BARS_PATH + out.str() + ".jpg";
-					cv::imwrite(path, img_crop);
-					out.str(std::string());
-					barIndex++;
+					// write all notes
+					for(int i = 0; i < SEGMENTS; i++){
+						img_crop = img_res(roi);
+						out << noteIndex;
+						std::string path = CROPPED_NOTES_PATH + out.str() + ".jpg";
+						cv::imwrite(path, img_crop);
+						out.str(std::string());
+
+						// move on to the next note
+						roi.x += roi.width;
+						noteIndex++;
+					}
 				}
 			}
 		}
