@@ -50,6 +50,7 @@
 #define MIN_SLOPE 0.5
 
 #define ROWS_SPACING 4
+#define COLUMNS_SPACING 10
 
 extern FILE *stdin;
 extern FILE *stdout;
@@ -66,11 +67,22 @@ const char* CW_ACCUMULATOR  	= "Accumulator";
 typedef std::pair<int, int> point;
 typedef std::pair<point, point> line;
 typedef std::pair<line, line> row;
+typedef bool(*pairCompare)(line, line);
 
 // Declerations
 void doTransform(std::string, int threshold);
 float findSlope(point first, point second);
-bool pairCompare(line firstLine, line secondLine);
+bool horizCompare(line firstLine, line secondLine);
+bool vertCompare(line firstLine, line secondLine);
+void findSpaces(
+	std::vector<line> lines,
+	std::vector<row>& spaces,
+	pairCompare comparer,
+	int spacing
+);
+void findRows(std::vector<line> horizontal, std::vector<row>& rows);
+void findColumns(std::vector<line> vertical, std::vector<row>& rows);
+void createLine(cv::Mat img_res, line currLine);
 
 // Usage explanation
 void usage(char * s)
@@ -142,82 +154,60 @@ void doTransform(std::string file_path, int threshold)
 	while(1)
 	{
 		cv::Mat img_res = img_ori.clone();
+
+		// line vectors
 		std::vector<line> horizontal;
-		std::vector<row> spaces;
+		std::vector<line> vertical;
 		std::vector<row> rows;
+		std::vector<row> columns;
+
+		// Iterators
+		std::vector<line>::iterator lineIt;
+		std::vector<row>::iterator rowIt;
 
 		//Search the accumulator
 		std::vector<line> lines = hough.GetLines(threshold);
 
 		//Draw the results
-		std::vector<line>::iterator it;
-		for(it=lines.begin();it!=lines.end();it++)
+		for(lineIt=lines.begin();lineIt!=lines.end();lineIt++)
 		{
 			// check if the line is horizontal or vertical
 			// if not, dismiss it
-			float lineSlope = findSlope(it->first, it->second);
+			float lineSlope = findSlope(lineIt->first, lineIt->second);
 			if (lineSlope > MAX_SLOPE || lineSlope < MIN_SLOPE) {
 				// Visualize
-/*
+
 				cv::line(
 					img_res,
-					cv::Point(it->first.first, it->first.second),
-					cv::Point(it->second.first, it->second.second),
-					cv::Scalar( 0, 0, 255), 2, 8
+					cv::Point(lineIt->first.first, lineIt->first.second),
+					cv::Point(lineIt->second.first, lineIt->second.second),
+					cv::Scalar( 0, 0, 255), 1, 8
 				);
-*/
+
 				// add to our vector of horizontal lines
 				if (lineSlope > MAX_SLOPE) {
-					horizontal.push_back(std::make_pair(it->first, it->second));
+					horizontal.push_back(std::make_pair(lineIt->first, lineIt->second));
+				} else {
+					vertical.push_back(std::make_pair(lineIt->first, lineIt->second));
 				}
 			}
 		}
 
 		// now we have all of the horizontal lines.
 		// find the ones clustered together and declare them as a row
-		std::sort(horizontal.begin(), horizontal.end(), pairCompare);
+		findRows(horizontal, rows);
+		//findColumns(vertical, columns);
 
-		// define row as two lines that have a large distance from their neighbours
-		float prevDist = 0, currDist = 0;
-		row currRow;
-		int currLine = 2;
-
-		// first find the large gaps
-		for(it=horizontal.begin();it!=horizontal.end()-1;it++) {
-			currDist = (it+1)->first.second - it->first.second;
-			std::cout << currDist;
-			if (currDist >= ROWS_SPACING*prevDist) {
-				// start of row
-				currRow.first = make_pair(it->first, it->second);
-				// end of row
-				currRow.second =  make_pair((it+1)->first, (it+1)->second);
-				spaces.push_back(currRow);
-			}
-			prevDist = currDist;
+		// Visualize rows
+		for(rowIt=rows.begin();rowIt!=rows.end();rowIt++) {
+			createLine(img_res, rowIt->first);
+			createLine(img_res, rowIt->second);
 		}
 
-		// now "shift" the pairs we have created so they match the rows
-		std::vector<row>::iterator it2;
-		for(it2=spaces.begin()+1;it2!=spaces.end()-1;it2++) {
-			currRow.first = it2->second;
-			currRow.second = (it2+1)->first;
-			rows.push_back(currRow);
-		}
-
-		for(it2=rows.begin();it2!=rows.end();it2++) {
-			cv::line(
-				img_res,
-				cv::Point(it2->first.first.first, it2->first.first.second),
-				cv::Point(it2->first.second.first, it2->first.second.second),
-				cv::Scalar( 0, 0, 255), 2, 8
-			);
-
-			cv::line(
-				img_res,
-				cv::Point(it2->second.first.first, it2->second.first.second),
-				cv::Point(it2->second.second.first, it2->second.second.second),
-				cv::Scalar( 0, 0, 255), 2, 8
-			);
+		// Visualize columns
+		for(rowIt=columns.begin();rowIt!=columns.end();rowIt++) {
+			createLine(img_res, rowIt->first);
+			createLine(img_res, rowIt->second);
 		}
 
 		//Visualize all
@@ -258,7 +248,120 @@ void doTransform(std::string file_path, int threshold)
 }
 
 
+void createLine(cv::Mat img_res, line currLine) {
+	cv::line(
+		img_res,
+		cv::Point(currLine.first.first, currLine.first.second),
+		cv::Point(currLine.second.first, currLine.second.second),
+		cv::Scalar( 0, 255, 0), 5, 8
+	);
+}
+
 // Utility functions
+void findRows(std::vector<line> horizontal, std::vector<row>& rows) {
+	// spaces vector
+	std::vector<row> spaces;
+	row currRow;
+
+	// iterator
+	std::vector<row>::iterator rowIt;
+
+	findSpaces(horizontal, spaces, horizCompare, ROWS_SPACING);
+
+	// now "shift" the pairs we have created so they match the rows
+	for(rowIt=spaces.begin()+1;rowIt!=spaces.end()-1;rowIt++) {
+		currRow.first = rowIt->second;
+		currRow.second = (rowIt+1)->first;
+		rows.push_back(currRow);
+	}
+}
+
+
+/*
+void findColumns(std::vector<line> vertical, std::vector<row>& columns) {
+	// spaces vector
+	std::vector<row> spaces;
+	row currRow;
+
+	// iterator
+	std::vector<line>::iterator lineIt;
+	std::vector<row>::iterator rowIt;
+
+	std::sort(vertical.begin(), vertical.end(), vertCompare);
+
+	// find all the spaces
+	for(lineIt=vertical.begin();lineIt!=vertical.end()-1;lineIt++) {
+		// start of row
+		currRow = make_pair(
+			make_pair(lineIt->first, lineIt->second),
+			make_pair((lineIt+1)->first, (lineIt+1)->second)
+		);
+		spaces.push_back(currRow);
+	}
+
+	// find and delete small ones
+	float minDist = 100, currDist;
+	for(rowIt=spaces.begin();rowIt!=spaces.end();rowIt++) {
+		currDist = rowIt->second.first.first - rowIt->first.first.first;
+		std::cout << currDist << ", ";
+		if (currDist < minDist){
+			minDist = currDist;
+		}
+	}
+	std::cout << minDist;
+
+	for(rowIt=spaces.begin();rowIt!=spaces.end()-1;rowIt++) {
+		currDist = rowIt->second.first.first - rowIt->first.first.first;
+		if (currDist < minDist * COLUMNS_SPACING){
+			spaces.erase(rowIt);
+		}
+	}
+
+	// print out distances
+	for(rowIt=spaces.begin();rowIt!=spaces.end();rowIt++) {
+		currDist = rowIt->second.first.first - rowIt->first.first.first;
+		std::cout << currDist << ", ";
+	}
+
+	// no shifting, the ones we want are spaced out.
+	// however remove whitespace from beginning and end
+
+	spaces.erase(spaces.begin());
+	spaces.erase(spaces.end()-1);
+	columns = spaces;
+}
+
+*/
+
+void findSpaces(
+	std::vector<line> lines,
+	std::vector<row>& spaces,
+	pairCompare comparer,
+	int spacing
+) {
+	// iterator
+	std::vector<line>::iterator lineIt;
+
+	std::sort(lines.begin(), lines.end(), comparer);
+
+	// define row as two lines that have a large distance from their neighbours
+	float prevDist = 0, currDist = 0;
+	row currRow;
+
+	// first find the large gaps
+	for(lineIt=lines.begin();lineIt!=lines.end()-1;lineIt++) {
+		currDist = (lineIt+1)->first.second - lineIt->first.second;
+		if (currDist >= ROWS_SPACING*prevDist) {
+			// start of row
+			currRow.first = make_pair(lineIt->first, lineIt->second);
+			// end of row
+			currRow.second =  make_pair((lineIt+1)->first, (lineIt+1)->second);
+			spaces.push_back(currRow);
+		}
+		prevDist = currDist;
+	}
+}
+
 
 // finds the slope of a line
 float findSlope(point first, point second) {
@@ -269,6 +372,11 @@ float findSlope(point first, point second) {
 }
 
 // Compares 2 horizontal lines
-bool pairCompare(line firstLine, line secondLine) {
+bool horizCompare(line firstLine, line secondLine) {
   return firstLine.first.second < secondLine.first.second;
+}
+
+// Compares 2 vertical lines
+bool vertCompare(line firstLine, line secondLine) {
+  return firstLine.first.first < secondLine.first.first;
 }
