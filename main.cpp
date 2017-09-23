@@ -21,8 +21,13 @@
 
 #define LEFT_BORDER 20
 #define RIGHT_BORDER 20
+#define TOP_BORDER 20
+#define BOTTOM_BORDER 20
 
-#define MIN_BAR_SIZE 20
+#define MIN_BAR_HEIGHT 20
+#define MIN_BAR_WIDTH 30
+
+// padding on top of each bar for other notes
 #define TOP_BAR_PADDING 10
 
 #define CROPPED_BARS_PATH "./cropped_bars/bar"
@@ -51,16 +56,25 @@ void doTransform(std::string, int threshold);
 float findSlope(point first, point second);
 bool horizCompare(line firstLine, line secondLine);
 bool vertCompare(line firstLine, line secondLine);
-void findSpaces(
-	std::vector<line> lines,
-	std::vector<row>& spaces,
-	pairCompare comparer,
-	int spacing
+void findRows(
+	std::vector<line> horizontal,
+	std::vector<row>& rows,
+	int imageSize
 );
-void findRows(std::vector<line> horizontal, std::vector<row>& rows);
 void findColumns(
 	std::vector<line> vertical,
 	std::vector<row>& columns,
+	int imageSize
+);
+void findSpaces(
+	std::vector<row>& ans,
+	std::vector<line>& lines,
+	bool vertical
+);
+void removeBorders(
+	std::vector<line>& ans,
+	std::vector<line>& lines,
+	bool vertical,
 	int imageSize
 );
 void drawLine(cv::Mat img_res, line currLine);
@@ -173,7 +187,7 @@ void doTransform(std::string file_path, int threshold)
 
 		// now we have all of the horizontal lines.
 		// find the ones clustered together and declare them as a row
-		findRows(horizontal, rows);
+		findRows(horizontal, rows, img_res.rows);
 		findColumns(vertical, columns, img_res.cols);
 
 		// now crop based on each row
@@ -284,24 +298,99 @@ void drawLine(cv::Mat img_res, line currLine) {
 }
 
 // Utility functions
-void findRows(std::vector<line> horizontal, std::vector<row>& rows) {
+void findSpaces(
+	std::vector<row>& ans,
+	std::vector<line>& lines,
+	bool vertical
+) {
+	// find all the spaces (don't add small ones)
+	std::vector<line>::iterator lineIt;
+	int currDist;
+	int minLength = (vertical) ? MIN_BAR_WIDTH : MIN_BAR_HEIGHT;
+
+	if (!lines.size()){
+		return;
+	}
+
+	for(lineIt=lines.begin();lineIt!=lines.end()-1;lineIt++) {
+		// start of row
+		if (vertical) {
+			currDist = (lineIt+1)->first.first - lineIt->first.first;
+		} else {
+			currDist = (lineIt+1)->first.second - lineIt->first.second;
+		}
+		if (currDist > minLength) {
+			ans.push_back(make_pair(*lineIt, *(lineIt + 1)));
+		}
+	}
+}
+
+void removeBorders(
+	std::vector<line>& ans,
+	std::vector<line>& lines,
+	bool vertical,
+	int imageSize
+) {
+	// remove all of the bordering lines
+	std::vector<line>::iterator lineIt;
+
+	for(lineIt=lines.begin();lineIt!=lines.end();lineIt++) {
+		// start of row
+		if (vertical) {
+			if (
+				lineIt->first.first > LEFT_BORDER
+				&& lineIt->first.first < (imageSize - RIGHT_BORDER)
+			){
+				// push 2 points into the new vector
+				ans.push_back(*lineIt);
+			}
+		} else {
+			if (
+				lineIt->first.second > TOP_BORDER
+				&& lineIt->first.second < (imageSize - BOTTOM_BORDER)
+			){
+				// push 2 points into the new vector
+				ans.push_back(*lineIt);
+			}
+		}
+	}
+}
+
+void findRows(
+	std::vector<line> horizontal,
+	std::vector<row>& rows,
+	int imageSize
+) {
 	// spaces vector
 	std::vector<row> spaces;
+	std::vector<line> nonBorders;
 	row currRow;
 
 	// iterator
 	std::vector<row>::iterator rowIt;
 
-	findSpaces(horizontal, spaces, horizCompare, ROWS_SPACING);
+	std::sort(horizontal.begin(), horizontal.end(), horizCompare);
 
+	removeBorders(
+		nonBorders,
+		horizontal,
+		false,
+		imageSize
+	);
+	findSpaces(
+		spaces,
+		nonBorders,
+		false
+	);
+
+	if(!spaces.size()){
+		return;
+	}
 	// now "shift" the pairs we have created so they match the rows
-	for(rowIt=spaces.begin()+1;rowIt!=spaces.end()-1;rowIt++) {
-		currRow.first = rowIt->second;
-		currRow.second = (rowIt+1)->first;
-		rows.push_back(currRow);
+	for(rowIt=spaces.begin();rowIt!=spaces.end()-1;rowIt++) {
+		rows.push_back(make_pair(rowIt->second, (rowIt+1)->first));
 	}
 }
-
 
 void findColumns(
 	std::vector<line> vertical,
@@ -309,8 +398,8 @@ void findColumns(
 	int imageSize
 ) {
 	// spaces vector
-	std::vector<line> largeVerticals;
 	std::vector<row> spaces;
+	std::vector<line> nonBorders;
 	row currRow;
 
 	// iterator
@@ -319,42 +408,20 @@ void findColumns(
 
 	std::sort(vertical.begin(), vertical.end(), vertCompare);
 
-	// first remove all of the bordering vertical lines
-	for(lineIt=vertical.begin();lineIt!=vertical.end();lineIt++) {
-		// start of row
-		if (
-			lineIt->first.first < LEFT_BORDER
-			|| lineIt->first.first > (imageSize - RIGHT_BORDER)
-		) {
-			// push 2 points into the new vector
-			largeVerticals.push_back(make_pair(lineIt->first, lineIt->second));
-		}
-	}
-
-
-	// find all the spaces (don't add small ones)
-	float currDist;
-	for(lineIt=largeVerticals.begin();lineIt!=largeVerticals.end()-1;lineIt++) {
-		// start of row
-		currDist = (lineIt+1)->first.first - lineIt->first.first;
-		if (currDist > MIN_BAR_SIZE) {
-			currRow = make_pair(
-				make_pair(lineIt->first, lineIt->second),
-				make_pair((lineIt+1)->first, (lineIt+1)->second)
-			);
-			spaces.push_back(currRow);
-		}
-	}
-
+	removeBorders(
+		nonBorders,
+		vertical,
+		true,
+		imageSize
+	);
+	findSpaces(
+		spaces,
+		nonBorders,
+		true
+	);
 	// no shifting, the ones we want are spaced out.
 	// however remove whitespace from beginning and end
-	if (spaces.size() > 2)
-		spaces.erase(spaces.begin());
-	if (spaces.size() > 1)
-		spaces.erase(spaces.end());
-
 	columns = spaces;
-	printRows(spaces);
 }
 
 void printRows(std::vector<row>& rows) {
@@ -368,37 +435,6 @@ void printRows(std::vector<row>& rows) {
 		std::cout << "|" << firstLineX << "\t"  << secondLineX << "|" << std::endl;
 	}
 }
-
-
-void findSpaces(
-	std::vector<line> lines,
-	std::vector<row>& spaces,
-	pairCompare comparer,
-	int spacing
-) {
-	// iterator
-	std::vector<line>::iterator lineIt;
-
-	std::sort(lines.begin(), lines.end(), comparer);
-
-	// define row as two lines that have a large distance from their neighbours
-	float prevDist = 0, currDist = 0;
-	row currRow;
-
-	// first find the large gaps
-	for(lineIt=lines.begin();lineIt!=lines.end()-1;lineIt++) {
-		currDist = (lineIt+1)->first.second - lineIt->first.second;
-		if (currDist >= ROWS_SPACING*prevDist) {
-			// start of row
-			currRow.first = make_pair(lineIt->first, lineIt->second);
-			// end of row
-			currRow.second =  make_pair((lineIt+1)->first, (lineIt+1)->second);
-			spaces.push_back(currRow);
-		}
-		prevDist = currDist;
-	}
-}
-
 
 // finds the slope of a line
 float findSlope(point first, point second) {
