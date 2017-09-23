@@ -37,6 +37,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <string>
+#include <sstream>
 #include <map>
 #include <iostream>
 
@@ -52,13 +53,23 @@
 #define ROWS_SPACING 4
 #define COLUMNS_SPACING 10
 
+#define LEFT_BORDER 20
+#define RIGHT_BORDER 20
+
+#define MIN_BAR_SIZE 20
+#define TOP_BAR_PADDING 10
+
+#define CROPPED_BARS_PATH "./cropped_bars/bar"
+
 extern FILE *stdin;
 extern FILE *stdout;
 extern FILE *stderr;
 
+std::stringstream out;
 std::string img_path;
 int threshold = 0;
 
+const char* CW_IMG_CROP	= "crop";
 const char* CW_IMG_ORIGINAL 	= "Result";
 const char* CW_IMG_EDGE		= "Canny Edge Detection";
 const char* CW_ACCUMULATOR  	= "Accumulator";
@@ -81,8 +92,13 @@ void findSpaces(
 	int spacing
 );
 void findRows(std::vector<line> horizontal, std::vector<row>& rows);
-void findColumns(std::vector<line> vertical, std::vector<row>& rows);
-void createLine(cv::Mat img_res, line currLine);
+void findColumns(
+	std::vector<line> vertical,
+	std::vector<row>& columns,
+	int imageSize
+);
+void drawLine(cv::Mat img_res, line currLine);
+void printRows(std::vector<row>& rows);
 
 // Usage explanation
 void usage(char * s)
@@ -120,10 +136,12 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-  cv::namedWindow(CW_IMG_ORIGINAL, cv::WINDOW_AUTOSIZE);
+	cv::namedWindow(CW_IMG_CROP, cv::WINDOW_AUTOSIZE);
+	cv::namedWindow(CW_IMG_ORIGINAL, cv::WINDOW_AUTOSIZE);
   cv::namedWindow(CW_IMG_EDGE, 	 cv::WINDOW_AUTOSIZE);
   cv::namedWindow(CW_ACCUMULATOR,	 cv::WINDOW_AUTOSIZE);
 
+	cvMoveWindow(CW_IMG_CROP, 100, 100);
   cvMoveWindow(CW_IMG_ORIGINAL, 10, 10);
   cvMoveWindow(CW_IMG_EDGE, 680, 10);
   cvMoveWindow(CW_ACCUMULATOR, 1350, 10);
@@ -136,8 +154,9 @@ void doTransform(std::string file_path, int threshold)
 {
 	cv::Mat img_edge;
 	cv::Mat img_blur;
-
+	cv::Mat img_crop;
 	cv::Mat img_ori = cv::imread( file_path, 1 );
+
 	cv::blur( img_ori, img_blur, cv::Size(5,5) );
 	cv::Canny(img_blur, img_edge, 100, 150, 3);
 
@@ -155,6 +174,10 @@ void doTransform(std::string file_path, int threshold)
 	{
 		cv::Mat img_res = img_ori.clone();
 
+		// Region of interest
+		cv::Rect roi;
+		float rectTopLeftX, rectTopLeftY, rectBottomLeftX, rectBottomLeftY;
+
 		// line vectors
 		std::vector<line> horizontal;
 		std::vector<line> vertical;
@@ -164,11 +187,67 @@ void doTransform(std::string file_path, int threshold)
 		// Iterators
 		std::vector<line>::iterator lineIt;
 		std::vector<row>::iterator rowIt;
+		std::vector<row>::iterator rowIt2;
 
 		//Search the accumulator
 		std::vector<line> lines = hough.GetLines(threshold);
 
 		//Draw the results
+		for(lineIt=lines.begin();lineIt!=lines.end();lineIt++)
+		{
+			// check if the line is horizontal or vertical
+			// if not, dismiss it
+			float lineSlope = findSlope(lineIt->first, lineIt->second);
+			// add to our vector of horizontal lines
+			if (lineSlope > MAX_SLOPE) {
+				horizontal.push_back(std::make_pair(lineIt->first, lineIt->second));
+			} else {
+				vertical.push_back(std::make_pair(lineIt->first, lineIt->second));
+			}
+		}
+
+		// now we have all of the horizontal lines.
+		// find the ones clustered together and declare them as a row
+		findRows(horizontal, rows);
+		findColumns(vertical, columns, img_res.cols);
+
+		// now crop based on each row
+		int barIndex = 0;
+		for(rowIt=rows.begin();rowIt!=rows.end();rowIt++) {
+			for(rowIt2=columns.begin();rowIt2!=columns.end();rowIt2++) {
+				// each iteration gives us a bar!
+				rectTopLeftX = rowIt2->first.first.first;
+				rectTopLeftY = rowIt->first.first.second;
+				rectBottomLeftX = rowIt2->second.first.first;
+				rectBottomLeftY = rowIt->second.first.second;
+
+				roi.x = rectTopLeftX;
+		    roi.y = rectTopLeftY - TOP_BAR_PADDING;
+		    roi.width = rectBottomLeftX - rectTopLeftX;
+		    roi.height = rectBottomLeftY - rectTopLeftY + 2*TOP_BAR_PADDING;
+
+				std::cout << roi.x;
+				std::cout << roi.y;
+
+		    /* Crop the original image to the defined ROI */
+		    img_crop = img_res(roi);
+		    cv::imshow("crop", img_crop);
+
+				// save image
+				out << barIndex;
+				std::string path = CROPPED_BARS_PATH + out.str() + ".jpg";
+				cv::imwrite(path, img_crop);
+				out.str(std::string());
+				barIndex++;
+
+				// let user inspect the bar
+				cv::waitKey(0);
+			}
+		}
+
+		//Draw the results:
+
+		// Visualize all lines
 		for(lineIt=lines.begin();lineIt!=lines.end();lineIt++)
 		{
 			// check if the line is horizontal or vertical
@@ -183,31 +262,19 @@ void doTransform(std::string file_path, int threshold)
 					cv::Point(lineIt->second.first, lineIt->second.second),
 					cv::Scalar( 0, 0, 255), 1, 8
 				);
-
-				// add to our vector of horizontal lines
-				if (lineSlope > MAX_SLOPE) {
-					horizontal.push_back(std::make_pair(lineIt->first, lineIt->second));
-				} else {
-					vertical.push_back(std::make_pair(lineIt->first, lineIt->second));
-				}
 			}
 		}
 
-		// now we have all of the horizontal lines.
-		// find the ones clustered together and declare them as a row
-		findRows(horizontal, rows);
-		//findColumns(vertical, columns);
-
 		// Visualize rows
 		for(rowIt=rows.begin();rowIt!=rows.end();rowIt++) {
-			createLine(img_res, rowIt->first);
-			createLine(img_res, rowIt->second);
+			drawLine(img_res, rowIt->first);
+			drawLine(img_res, rowIt->second);
 		}
 
 		// Visualize columns
 		for(rowIt=columns.begin();rowIt!=columns.end();rowIt++) {
-			createLine(img_res, rowIt->first);
-			createLine(img_res, rowIt->second);
+			drawLine(img_res, rowIt->first);
+			drawLine(img_res, rowIt->second);
 		}
 
 		//Visualize all
@@ -248,7 +315,7 @@ void doTransform(std::string file_path, int threshold)
 }
 
 
-void createLine(cv::Mat img_res, line currLine) {
+void drawLine(cv::Mat img_res, line currLine) {
 	cv::line(
 		img_res,
 		cv::Point(currLine.first.first, currLine.first.second),
@@ -277,8 +344,11 @@ void findRows(std::vector<line> horizontal, std::vector<row>& rows) {
 }
 
 
-/*
-void findColumns(std::vector<line> vertical, std::vector<row>& columns) {
+void findColumns(
+	std::vector<line> vertical,
+	std::vector<row>& columns,
+	int imageSize
+) {
 	// spaces vector
 	std::vector<row> spaces;
 	row currRow;
@@ -289,49 +359,52 @@ void findColumns(std::vector<line> vertical, std::vector<row>& columns) {
 
 	std::sort(vertical.begin(), vertical.end(), vertCompare);
 
-	// find all the spaces
+	// first remove all of the bordering vertical lines
+	for(lineIt=vertical.begin();lineIt!=vertical.end();lineIt++) {
+		// start of row
+		if (
+			lineIt->first.first < LEFT_BORDER
+			|| lineIt->first.first > (imageSize - RIGHT_BORDER)
+		) {
+			vertical.erase(lineIt);
+		}
+	}
+
+	// find all the spaces (don't add small ones)
+	float currDist;
 	for(lineIt=vertical.begin();lineIt!=vertical.end()-1;lineIt++) {
 		// start of row
-		currRow = make_pair(
-			make_pair(lineIt->first, lineIt->second),
-			make_pair((lineIt+1)->first, (lineIt+1)->second)
-		);
-		spaces.push_back(currRow);
-	}
-
-	// find and delete small ones
-	float minDist = 100, currDist;
-	for(rowIt=spaces.begin();rowIt!=spaces.end();rowIt++) {
-		currDist = rowIt->second.first.first - rowIt->first.first.first;
-		std::cout << currDist << ", ";
-		if (currDist < minDist){
-			minDist = currDist;
+		currDist = (lineIt+1)->first.first - lineIt->first.first;
+		if (currDist > MIN_BAR_SIZE) {
+			currRow = make_pair(
+				make_pair(lineIt->first, lineIt->second),
+				make_pair((lineIt+1)->first, (lineIt+1)->second)
+			);
+			spaces.push_back(currRow);
 		}
-	}
-	std::cout << minDist;
-
-	for(rowIt=spaces.begin();rowIt!=spaces.end()-1;rowIt++) {
-		currDist = rowIt->second.first.first - rowIt->first.first.first;
-		if (currDist < minDist * COLUMNS_SPACING){
-			spaces.erase(rowIt);
-		}
-	}
-
-	// print out distances
-	for(rowIt=spaces.begin();rowIt!=spaces.end();rowIt++) {
-		currDist = rowIt->second.first.first - rowIt->first.first.first;
-		std::cout << currDist << ", ";
 	}
 
 	// no shifting, the ones we want are spaced out.
 	// however remove whitespace from beginning and end
-
 	spaces.erase(spaces.begin());
-	spaces.erase(spaces.end()-1);
+	spaces.erase(spaces.end());
 	columns = spaces;
+
+	printRows(spaces);
 }
 
-*/
+void printRows(std::vector<row>& rows) {
+	std::vector<row>::iterator rowIt;
+	int firstLineX, secondLineX;
+
+	// print out distances
+	for(rowIt=rows.begin();rowIt!=rows.end();rowIt++) {
+		firstLineX = rowIt->first.first.first;
+		secondLineX = rowIt->second.first.first;
+		std::cout << "|" << firstLineX << "\t"  << secondLineX << "|" << std::endl;
+	}
+}
+
 
 void findSpaces(
 	std::vector<line> lines,
