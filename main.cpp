@@ -226,22 +226,14 @@ void doTransform(std::string file_path, int threshold)
 		    roi.width = rectBottomLeftX - rectTopLeftX;
 		    roi.height = rectBottomLeftY - rectTopLeftY + 2*TOP_BAR_PADDING;
 
-				std::cout << roi.x;
-				std::cout << roi.y;
-
 		    /* Crop the original image to the defined ROI */
-		    img_crop = img_res(roi);
-		    cv::imshow("crop", img_crop);
-
 				// save image
+				img_crop = img_res(roi);
 				out << barIndex;
 				std::string path = CROPPED_BARS_PATH + out.str() + ".jpg";
 				cv::imwrite(path, img_crop);
 				out.str(std::string());
 				barIndex++;
-
-				// let user inspect the bar
-				cv::waitKey(0);
 			}
 		}
 
