@@ -1,11 +1,13 @@
 import wave, struct, math
 
+DEFAULT_FILE_NAME = "sound.wav"
+
 class MusicPlayer(object):
-    def __init__(self, melody):
+    def __init__(self, melody, filename = DEFAULT_FILE_NAME):
         self._sampleRate = 44100.0 # hertz
         self._melody = melody
 
-        self._wavef = wave.open('sound.wav','w')
+        self._wavef = wave.open(filename,'w')
         self._wavef.setnchannels(1) # mono
         self._wavef.setsampwidth(2)
         self._wavef.setframerate(self._sampleRate)
