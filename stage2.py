@@ -39,7 +39,6 @@ NUMS = {
 }
 
 def calc_freq(note_name):
-    print note_name
     note_num = OCTAVE_LENGTH*int(note_name[1]) + NUMS[note_name[0]]
     return 440 * (2 **(note_num/12))
 
