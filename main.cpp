@@ -71,6 +71,11 @@ void findSpaces(
 	std::vector<line>& lines,
 	bool vertical
 );
+void findRowSpaces(
+	std::vector<row>& ans,
+	std::vector<line>& lines,
+	bool vertical
+);
 void removeBorders(
 	std::vector<line>& ans,
 	std::vector<line>& lines,
@@ -335,6 +340,42 @@ void findSpaces(
 	}
 }
 
+
+// function in beta, slightly different approach from above
+void findRowSpaces(
+	std::vector<row>& ans,
+	std::vector<line>& lines,
+	bool vertical
+) {
+	// find all the spaces (don't add small ones)
+	std::vector<line>::iterator lineIt;
+	line firstLine;
+	bool finished = true;
+	int currDist;
+	int minLength = (vertical) ? MIN_BAR_WIDTH : MIN_BAR_HEIGHT;
+
+	if (!lines.size()){
+		return;
+	}
+
+	for(lineIt=lines.begin();lineIt < lines.end()-1;lineIt++) {
+		// start of row
+		if (vertical) {
+			currDist = (lineIt+1)->first.first - lineIt->first.first;
+		} else {
+			currDist = (lineIt+1)->first.second - lineIt->first.second;
+		}
+		if (currDist > minLength) {
+			ans.push_back(make_pair(firstLine, *lineIt));
+			finished = true;
+		} else if (finished) {
+			firstLine = *lineIt;
+			finished = false;
+		}
+	}
+}
+
+
 void removeBorders(
 	std::vector<line>& ans,
 	std::vector<line>& lines,
@@ -387,7 +428,7 @@ void findRows(
 		false,
 		imageSize
 	);
-	findSpaces(
+	findRowSpaces(
 		spaces,
 		nonBorders,
 		false
