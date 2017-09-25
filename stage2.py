@@ -11,6 +11,32 @@ REST_LENGTH = 2
 
 REST = "rest"
 
+INNER_NOTE_REST = 0.3
+
+# EXAMPLE MELODIES:
+EXAMPLE_MELODY = ["g1", "e1", "e1", "rest", "f1", "d1", "d1", "rest", "c1", "d1", "e1", "f1", "g1", "g1", "g1"]
+PLAYABLE_MELODY_2 = [
+    {
+        "type" : 0,
+        "length" : 0.25,
+        "freq" : 440,
+    },
+    {
+        "type" : 0,
+        "length" : 0.25,
+        "freq" : 480,
+    },
+    {
+        "type" : 0,
+        "length" : 0.25,
+        "freq" : 550,
+    },
+    {
+        "type" : 0,
+        "length" : 0.25,
+        "freq" : 700,
+    }
+]
 
 # musical constants
 OCTAVE_LENGTH = 12
@@ -38,9 +64,40 @@ NUMS = {
     "h" : 12,
 }
 
+# no point in trying to understand this... musical stuff
 def calc_freq(note_name):
-    note_num = OCTAVE_LENGTH*int(note_name[1]) + NUMS[note_name[0]]
-    return 440 * (2 **(note_num/12))
+    note_num = (OCTAVE_LENGTH*int(note_name[1]) + NUMS[note_name[0]])
+    return 440 * (2 **(float(note_num-22)/12))
+
+def create_melody(extracted_notes, my_notes):
+    melody = []
+    for note in extracted_notes:
+        melody.append(my_notes[note])
+        melody.append({
+            "type" : 1,
+            "length" : INNER_NOTE_REST,
+            "freq" : EMPTY_FREQ
+        })
+    return melody
+
+def create_melody2(actual_notes):
+    melody = []
+    for note in actual_notes:
+        freq = EMPTY_FREQ
+        if note != "rest":
+            freq = calc_freq(note)
+
+        melody.append({
+            "type" : 0,
+            "length" : (1-INNER_NOTE_REST)*0.5,
+            "freq" : freq
+        })
+        melody.append({
+            "type" : 1,
+            "length" : INNER_NOTE_REST*0.5,
+            "freq" : EMPTY_FREQ
+        })
+    return melody
 
 def main():
     data_notes = []
@@ -63,12 +120,13 @@ def main():
         note = data_notes[i].split('-')
         my_notes[i] = {
             "type" : TYPES[note[0]],
-            "length" : LENGTHS[note[1]]
+            "length" : (1-INNER_NOTE_REST) * LENGTHS[note[1]]
         }
         if my_notes[i]["type"] == TYPES["rest"]:
             my_notes["freq"] = EMPTY_FREQ
         else:
             my_notes["freq"] = calc_freq("%s0" % note[2])
+
 
     # now we have database. call  neural_network for each note picture
     """
@@ -79,39 +137,10 @@ def main():
                 cv2.imread(CROPPED_NOTES_PATH + filename)
             )
         )
-
-    # create melody with objects from note database
-    melody = []
-    for note in extracted_notes:
-        melody.append(my_notes[note])
-    """
-    """
-    EXAMPLE MELODY:
-    melody = [
-        {
-            "type" : 0,
-            "length" : 0.25,
-            "freq" : 440,
-        },
-        {
-            "type" : 0,
-            "length" : 0.25,
-            "freq" : 480,
-        },
-        {
-            "type" : 0,
-            "length" : 0.25,
-            "freq" : 550,
-        },
-        {
-            "type" : 0,
-            "length" : 0.25,
-            "freq" : 700,
-        }
-    ]
+    melody = create_melody(extracted_notes, my_notes)
     """
 
-    melody = []
+    melody = create_melody2(EXAMPLE_MELODY)
 
     # now extracted notes contains the entire melody
     # TODO: add "second hand"

@@ -220,6 +220,7 @@ void doTransform(std::string file_path, int threshold)
 					// write all notes
 					for(int i = 0; i < SEGMENTS; i++){
 						img_crop = img_res(roi);
+						cv::resize(img_crop, img_crop, cv::Size(30, 50), 0, 0, cv::INTER_CUBIC); 
 						out << noteIndex;
 						std::string path = CROPPED_NOTES_PATH + out.str() + ".jpg";
 						cv::imwrite(path, img_crop);
