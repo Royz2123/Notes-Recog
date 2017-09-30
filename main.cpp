@@ -209,13 +209,11 @@ void doTransform(std::string file_path, int threshold)
 				rectBottomLeftX = rowIt2->second.first.first;
 				rectBottomLeftY = rowIt->second.first.second;
 
-				int segments = SEGMENTS;
-				if (rowIt2 == columns.begin())
-					segments += 1;
+				int addedSegment = (rowIt2 == columns.begin()) ? 1 : 0;
 
 				roi.x = rectTopLeftX;
 		    roi.y = rectTopLeftY - TOP_BAR_PADDING;
-		    roi.width = (rectBottomLeftX - rectTopLeftX) / segments;
+		    roi.width = (rectBottomLeftX - rectTopLeftX) / (SEGMENTS + addedSegment);
 		    roi.height = rectBottomLeftY - rectTopLeftY + 2*TOP_BAR_PADDING;
 
 				// normalizations
@@ -226,17 +224,19 @@ void doTransform(std::string file_path, int threshold)
 				// save image
 				if(roi.area() > 0) {
 					// write all notes
-					for(int i = 0; i < SEGMENTS; i++){
-						img_crop = img_res(roi);
-						cv::resize(img_crop, img_crop, cv::Size(30, 50), 0, 0, cv::INTER_CUBIC);
-						out << noteIndex;
-						std::string path = CROPPED_NOTES_PATH + out.str() + ".jpg";
-						cv::imwrite(path, img_crop);
-						out.str(std::string());
-
+					for(int i = 0; i < (addedSegment + SEGMENTS); i++){
+						if(!(i==0 && addedSegment))
+						{
+							img_crop = img_res(roi);
+							cv::resize(img_crop, img_crop, cv::Size(30, 50), 0, 0, cv::INTER_CUBIC);
+							out << noteIndex;
+							std::string path = CROPPED_NOTES_PATH + out.str() + ".jpg";
+							cv::imwrite(path, img_crop);
+							out.str(std::string());
+							noteIndex++;
+						}
 						// move on to the next note
 						roi.x += roi.width;
-						noteIndex++;
 					}
 				}
 			}
