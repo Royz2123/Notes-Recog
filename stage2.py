@@ -139,6 +139,8 @@ def main():
         im = np.reshape(im, 50*30)
         im = im.tolist()
         extracted_notes.append(my_net.classify(np.array([im])))
+
+    # create melody from NN output
     melody = create_melody(extracted_notes, my_notes)
 
     # now extracted notes contains the entire melody

@@ -16,6 +16,7 @@ input_size = 30*50
 output_classes = 100
 datapath = 'C:/Users/ykane/Documents/music symbols datasets/notes'
 
+
 def name2label(name):
     parts = name.split('-')
     parts = parts[:3] if parts[0] == 'note' else parts[:2]
