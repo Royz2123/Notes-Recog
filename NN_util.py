@@ -10,7 +10,8 @@ except ImportError:
 def create_net(input_size, output_size):
     network = Sequential()
     network.add(Dense(units=64, activation='relu', input_dim=input_size))
-    network.add(Dense(units=32, activation='sigmoid'))
+    network.add(Dense(units=32, activation='relu'))
+    network.add(Dense(units=16, activation='relu'))
     network.add(Dense(units=output_size, activation='softmax'))
 
     network.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])

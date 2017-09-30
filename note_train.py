@@ -3,6 +3,7 @@ from keras.models import Sequential
 from keras.layers import Dense
 import numpy as np
 import data_util
+import msvcrt
 try:
     import _pickle as pickle
 except ImportError:
@@ -19,8 +20,7 @@ du = data_util.DataUtil()
 
 
 output_classes = len(np.unique(train_labels))
-print('type of output size: ' + str(type(output_classes)))
-print(output_classes)
+print('num of classes: %d' % output_classes)
 
 train_set = train_set.astype('float32')
 test_set = test_set.astype('float32')
@@ -48,22 +48,27 @@ def train_NN(reload=False):
         acc = 0.0 if len(accuracies) == 0 else accuracies[-1]
         iteration = len(nets)
 
-    while acc < 0.99 and iteration < 100:
-        print('start iteration %d' % iteration)
+    while acc < 0.95 and iteration < 100:
+        print('start iteration %d' % (iteration + 1))
         train_res = network.fit(train_set, keras.utils.to_categorical(train_labels, num_classes=output_classes),
                     epochs=10, batch_size=50,
                     validation_data=(test_set, keras.utils.to_categorical(test_labels, num_classes=output_classes)))
         train_res = train_res.history
 
         acc = train_res['val_acc']
-        if type(acc) is list:
-            if len(acc) > 1:
-                print('len(acc) is more than 1, %d' % len(acc))
-        accuracies += acc
+        accuracies += acc if type(acc) is list else [acc]
         nets.append(NN_util.network_data(network))
         iteration += 1
-        acc = acc[-1]
+        acc = acc[-1] if type(acc) is list else acc
         print('eval acc: ' + str(acc))
+
+        if msvcrt.kbhit():
+            cmd = msvcrt.getch()
+            if cmd == b'x':
+                print('are you sure you want to stop? (y/n)')
+                if input() == 'y':
+                    break
+
 
     with open('network_list.pickle', 'wb') as f:
         pickle.dump(nets, f)
@@ -73,4 +78,4 @@ def train_NN(reload=False):
 
 
 if __name__ == '__main__':
-    train_NN(True)
+    train_NN(reload=True)
