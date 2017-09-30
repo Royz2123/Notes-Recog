@@ -21,7 +21,7 @@
 #define TOP_BORDER 10
 #define BOTTOM_BORDER 10
 
-#define MIN_BAR_HEIGHT 20
+#define MIN_BAR_HEIGHT 15
 #define MIN_BAR_WIDTH 30
 
 // padding on top of each bar for other notes
@@ -82,7 +82,11 @@ void removeBorders(
 	bool vertical,
 	int imageSize
 );
-void drawLine(cv::Mat img_res, line currLine);
+void drawLine(
+	cv::Mat img_res,
+	line currLine,
+	cv::Scalar color=cv::Scalar(0, 0, 255)
+);
 void printRows(std::vector<row>& rows);
 
 // Usage explanation
@@ -220,7 +224,7 @@ void doTransform(std::string file_path, int threshold)
 					// write all notes
 					for(int i = 0; i < SEGMENTS; i++){
 						img_crop = img_res(roi);
-						cv::resize(img_crop, img_crop, cv::Size(30, 50), 0, 0, cv::INTER_CUBIC); 
+						cv::resize(img_crop, img_crop, cv::Size(30, 50), 0, 0, cv::INTER_CUBIC);
 						out << noteIndex;
 						std::string path = CROPPED_NOTES_PATH + out.str() + ".jpg";
 						cv::imwrite(path, img_crop);
@@ -255,9 +259,19 @@ void doTransform(std::string file_path, int threshold)
 		}
 
 		// Visualize rows
+		cv::Scalar currColor;
+		cv::Scalar color1 = cv::Scalar(0,0,255);
+		cv::Scalar color2 = cv::Scalar(0,255,0);
+		bool parity = false;
 		for(rowIt=rows.begin();rowIt!=rows.end();rowIt++) {
-			drawLine(img_res, rowIt->first);
-			drawLine(img_res, rowIt->second);
+			currColor = color2;
+			if (parity)
+				currColor = color1;
+			parity = !parity;
+
+			//draw this row
+			drawLine(img_res, rowIt->first, currColor);
+			drawLine(img_res, rowIt->second, currColor);
 		}
 
 		// Visualize columns
@@ -304,12 +318,12 @@ void doTransform(std::string file_path, int threshold)
 }
 
 
-void drawLine(cv::Mat img_res, line currLine) {
+void drawLine(cv::Mat img_res, line currLine, cv::Scalar color1) {
 	cv::line(
 		img_res,
 		cv::Point(currLine.first.first, currLine.first.second),
 		cv::Point(currLine.second.first, currLine.second.second),
-		cv::Scalar( 0, 255, 0), 5, 8
+		color1, 5, 8
 	);
 }
 
@@ -348,10 +362,10 @@ void findRowSpaces(
 	std::vector<line>& lines,
 	bool vertical
 ) {
+	std:: cout << lines.size() <<std::endl;
 	// find all the spaces (don't add small ones)
 	std::vector<line>::iterator lineIt;
 	line firstLine;
-	bool finished = true;
 	int currDist;
 	int minLength = (vertical) ? MIN_BAR_WIDTH : MIN_BAR_HEIGHT;
 
@@ -359,19 +373,20 @@ void findRowSpaces(
 		return;
 	}
 
-	for(lineIt=lines.begin();lineIt < lines.end()-1;lineIt++) {
-		// start of row
-		if (vertical) {
-			currDist = (lineIt+1)->first.first - lineIt->first.first;
-		} else {
-			currDist = (lineIt+1)->first.second - lineIt->first.second;
-		}
+	firstLine = *lines.begin();
+	for(lineIt=lines.begin();lineIt < lines.end()-2;lineIt++) {
+		currDist = (lineIt+1)->first.second - lineIt->first.second;
+		std::cout << currDist << " ";
+
 		if (currDist > minLength) {
-			ans.push_back(make_pair(firstLine, *lineIt));
-			finished = true;
-		} else if (finished) {
-			firstLine = *lineIt;
-			finished = false;
+			std::cout << "HELLO";
+			std::cout << firstLine.first.second;
+			std::cout << (*lineIt).first.second;
+			std::cout <<std::endl;
+
+			ans.push_back(make_pair(firstLine, *(lineIt+1)));
+			firstLine = *(lineIt + 2);
+			lineIt += 1;
 		}
 	}
 }
