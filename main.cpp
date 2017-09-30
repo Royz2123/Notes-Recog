@@ -222,9 +222,11 @@ void doTransform(std::string file_path, int threshold)
 
 		    /* Crop the original image to the defined ROI */
 				// save image
-				if(roi.area() > 0) {
+				if(roi.area() > 0)
+				{
 					// write all notes
-					for(int i = 0; i < (addedSegment + SEGMENTS); i++){
+					for(int i = 0; i < (addedSegment + SEGMENTS); i++)
+					{
 						if(!(i==0 && addedSegment))
 						{
 							img_crop = img_res(roi);

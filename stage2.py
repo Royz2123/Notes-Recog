@@ -131,7 +131,7 @@ def main():
     # now we have database. call  neural_network for each note picture
     """
     extracted_notes = []
-    for filename in os.listdir(CROPPED_NOTES_PATH):
+    for filename in sorted(os.listdir(CROPPED_NOTES_PATH)):
         extracted_notes.append(
             neural_network(
                 cv2.imread(CROPPED_NOTES_PATH + filename)
