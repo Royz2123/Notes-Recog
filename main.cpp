@@ -21,7 +21,7 @@
 #define TOP_BORDER 10
 #define BOTTOM_BORDER 10
 
-#define MIN_BAR_HEIGHT 15
+#define MIN_BAR_HEIGHT 10
 #define MIN_BAR_WIDTH 30
 
 // padding on top of each bar for other notes
@@ -209,9 +209,13 @@ void doTransform(std::string file_path, int threshold)
 				rectBottomLeftX = rowIt2->second.first.first;
 				rectBottomLeftY = rowIt->second.first.second;
 
+				int segments = SEGMENTS;
+				if (rowIt2 == columns.begin())
+					segments += 1;
+
 				roi.x = rectTopLeftX;
 		    roi.y = rectTopLeftY - TOP_BAR_PADDING;
-		    roi.width = (rectBottomLeftX - rectTopLeftX) / SEGMENTS;
+		    roi.width = (rectBottomLeftX - rectTopLeftX) / segments;
 		    roi.height = rectBottomLeftY - rectTopLeftY + 2*TOP_BAR_PADDING;
 
 				// normalizations
@@ -362,28 +366,21 @@ void findRowSpaces(
 	std::vector<line>& lines,
 	bool vertical
 ) {
-	std:: cout << lines.size() <<std::endl;
 	// find all the spaces (don't add small ones)
 	std::vector<line>::iterator lineIt;
 	line firstLine;
 	int currDist;
-	int minLength = (vertical) ? MIN_BAR_WIDTH : MIN_BAR_HEIGHT;
 
-	if (!lines.size()){
+	if (!lines.size())
+	{
 		return;
 	}
-
 	firstLine = *lines.begin();
-	for(lineIt=lines.begin();lineIt < lines.end()-2;lineIt++) {
+	for(lineIt=lines.begin();lineIt < lines.end()-2;lineIt++)
+	{
 		currDist = (lineIt+1)->first.second - lineIt->first.second;
-		std::cout << currDist << " ";
-
-		if (currDist > minLength) {
-			std::cout << "HELLO";
-			std::cout << firstLine.first.second;
-			std::cout << (*lineIt).first.second;
-			std::cout <<std::endl;
-
+		if (currDist > ((vertical) ? MIN_BAR_WIDTH : MIN_BAR_HEIGHT))
+		{
 			ans.push_back(make_pair(firstLine, *(lineIt+1)));
 			firstLine = *(lineIt + 2);
 			lineIt += 1;
@@ -401,7 +398,8 @@ void removeBorders(
 	// remove all of the bordering lines
 	std::vector<line>::iterator lineIt;
 
-	for(lineIt=lines.begin();lineIt!=lines.end();lineIt++) {
+	for(lineIt=lines.begin();lineIt!=lines.end();lineIt++)
+	{
 		// start of row
 		if (vertical) {
 			if (
@@ -450,10 +448,10 @@ void findRows(
 		false
 	);
 
-	if(!spaces.size()){
+	if(!spaces.size())
+	{
 		return;
 	}
-
 	rows = spaces;
 }
 
