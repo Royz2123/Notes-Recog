@@ -1,6 +1,9 @@
 import cv2
 import os
 
+import numpy as np
+
+import NN_notes
 import music_player
 
 CROPPED_NOTES_PATH = "cropped_notes/"
@@ -127,20 +130,18 @@ def main():
         else:
             my_notes["freq"] = calc_freq("%s0" % note[2])
 
-
     # now we have database. call  neural_network for each note picture
-    """
     extracted_notes = []
-    for filename in os.listdir(CROPPED_NOTES_PATH):
-        extracted_notes.append(
-            neural_network(
-                cv2.imread(CROPPED_NOTES_PATH + filename)
-            )
-        )
-    melody = create_melody(extracted_notes, my_notes)
-    """
+    for filename in sorted(os.listdir(CROPPED_NOTES_PATH)):
+        my_net = NN_notes.NN()
+        im = cv2.imread(filename, 0)
+        im = cv2.resize(im, (30, 50))
+        im = np.reshape(im, 50*30)
+        im = im.tolist()
+        extracted_notes.append(my_net.classify(np.array([im])))
 
-    melody = create_melody2(EXAMPLE_MELODY)
+    # create melody from NN output
+    melody = create_melody(extracted_notes, my_notes)
 
     # now extracted notes contains the entire melody
     # TODO: add "second hand"

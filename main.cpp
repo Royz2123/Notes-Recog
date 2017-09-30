@@ -21,7 +21,7 @@
 #define TOP_BORDER 10
 #define BOTTOM_BORDER 10
 
-#define MIN_BAR_HEIGHT 20
+#define MIN_BAR_HEIGHT 10
 #define MIN_BAR_WIDTH 30
 
 // padding on top of each bar for other notes
@@ -82,7 +82,11 @@ void removeBorders(
 	bool vertical,
 	int imageSize
 );
-void drawLine(cv::Mat img_res, line currLine);
+void drawLine(
+	cv::Mat img_res,
+	line currLine,
+	cv::Scalar color=cv::Scalar(0, 0, 255)
+);
 void printRows(std::vector<row>& rows);
 
 // Usage explanation
@@ -205,9 +209,11 @@ void doTransform(std::string file_path, int threshold)
 				rectBottomLeftX = rowIt2->second.first.first;
 				rectBottomLeftY = rowIt->second.first.second;
 
+				int addedSegment = (rowIt2 == columns.begin()) ? 1 : 0;
+
 				roi.x = rectTopLeftX;
 		    roi.y = rectTopLeftY - TOP_BAR_PADDING;
-		    roi.width = (rectBottomLeftX - rectTopLeftX) / SEGMENTS;
+		    roi.width = (rectBottomLeftX - rectTopLeftX) / (SEGMENTS + addedSegment);
 		    roi.height = rectBottomLeftY - rectTopLeftY + 2*TOP_BAR_PADDING;
 
 				// normalizations
@@ -216,19 +222,23 @@ void doTransform(std::string file_path, int threshold)
 
 		    /* Crop the original image to the defined ROI */
 				// save image
-				if(roi.area() > 0) {
+				if(roi.area() > 0)
+				{
 					// write all notes
-					for(int i = 0; i < SEGMENTS; i++){
-						img_crop = img_res(roi);
-						cv::resize(img_crop, img_crop, cv::Size(30, 50), 0, 0, cv::INTER_CUBIC); 
-						out << noteIndex;
-						std::string path = CROPPED_NOTES_PATH + out.str() + ".jpg";
-						cv::imwrite(path, img_crop);
-						out.str(std::string());
-
+					for(int i = 0; i < (addedSegment + SEGMENTS); i++)
+					{
+						if(!(i==0 && addedSegment))
+						{
+							img_crop = img_res(roi);
+							cv::resize(img_crop, img_crop, cv::Size(30, 50), 0, 0, cv::INTER_CUBIC);
+							out << noteIndex;
+							std::string path = CROPPED_NOTES_PATH + out.str() + ".jpg";
+							cv::imwrite(path, img_crop);
+							out.str(std::string());
+							noteIndex++;
+						}
 						// move on to the next note
 						roi.x += roi.width;
-						noteIndex++;
 					}
 				}
 			}
@@ -255,9 +265,19 @@ void doTransform(std::string file_path, int threshold)
 		}
 
 		// Visualize rows
+		cv::Scalar currColor;
+		cv::Scalar color1 = cv::Scalar(0,0,255);
+		cv::Scalar color2 = cv::Scalar(0,255,0);
+		bool parity = false;
 		for(rowIt=rows.begin();rowIt!=rows.end();rowIt++) {
-			drawLine(img_res, rowIt->first);
-			drawLine(img_res, rowIt->second);
+			currColor = color2;
+			if (parity)
+				currColor = color1;
+			parity = !parity;
+
+			//draw this row
+			drawLine(img_res, rowIt->first, currColor);
+			drawLine(img_res, rowIt->second, currColor);
 		}
 
 		// Visualize columns
@@ -304,12 +324,12 @@ void doTransform(std::string file_path, int threshold)
 }
 
 
-void drawLine(cv::Mat img_res, line currLine) {
+void drawLine(cv::Mat img_res, line currLine, cv::Scalar color1) {
 	cv::line(
 		img_res,
 		cv::Point(currLine.first.first, currLine.first.second),
 		cv::Point(currLine.second.first, currLine.second.second),
-		cv::Scalar( 0, 255, 0), 5, 8
+		color1, 5, 8
 	);
 }
 
@@ -351,27 +371,21 @@ void findRowSpaces(
 	// find all the spaces (don't add small ones)
 	std::vector<line>::iterator lineIt;
 	line firstLine;
-	bool finished = true;
 	int currDist;
-	int minLength = (vertical) ? MIN_BAR_WIDTH : MIN_BAR_HEIGHT;
 
-	if (!lines.size()){
+	if (!lines.size())
+	{
 		return;
 	}
-
-	for(lineIt=lines.begin();lineIt < lines.end()-1;lineIt++) {
-		// start of row
-		if (vertical) {
-			currDist = (lineIt+1)->first.first - lineIt->first.first;
-		} else {
-			currDist = (lineIt+1)->first.second - lineIt->first.second;
-		}
-		if (currDist > minLength) {
-			ans.push_back(make_pair(firstLine, *lineIt));
-			finished = true;
-		} else if (finished) {
-			firstLine = *lineIt;
-			finished = false;
+	firstLine = *lines.begin();
+	for(lineIt=lines.begin();lineIt < lines.end()-2;lineIt++)
+	{
+		currDist = (lineIt+1)->first.second - lineIt->first.second;
+		if (currDist > ((vertical) ? MIN_BAR_WIDTH : MIN_BAR_HEIGHT))
+		{
+			ans.push_back(make_pair(firstLine, *(lineIt+1)));
+			firstLine = *(lineIt + 2);
+			lineIt += 1;
 		}
 	}
 }
@@ -386,7 +400,8 @@ void removeBorders(
 	// remove all of the bordering lines
 	std::vector<line>::iterator lineIt;
 
-	for(lineIt=lines.begin();lineIt!=lines.end();lineIt++) {
+	for(lineIt=lines.begin();lineIt!=lines.end();lineIt++)
+	{
 		// start of row
 		if (vertical) {
 			if (
@@ -435,10 +450,10 @@ void findRows(
 		false
 	);
 
-	if(!spaces.size()){
+	if(!spaces.size())
+	{
 		return;
 	}
-
 	rows = spaces;
 }
 

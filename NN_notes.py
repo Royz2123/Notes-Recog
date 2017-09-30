@@ -17,8 +17,7 @@ def plot(data):
     ploter.show()
 
 
-class NN:
-
+class NN(object):
     def __init__(self):
         with open('network_list.pickle', 'rb') as f:
             nets = pickle.load(f)
@@ -68,4 +67,3 @@ if __name__ == '__main__':
     predicts = my_net.classify(np.array(ims))
     for p in predicts:
         print([p, du.label2name(p)])
-
