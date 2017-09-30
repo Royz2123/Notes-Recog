@@ -16,7 +16,6 @@ input_size = 30*50
 output_classes = 100
 datapath = 'C:/Users/ykane/Documents/music symbols datasets/notes'
 
-
 def name2label(name):
     parts = name.split('-')
     parts = parts[:3] if parts[0] == 'note' else parts[:2]
@@ -134,4 +133,3 @@ with open('network_list', 'wb') as f:
 with open('accuracies', 'wb') as f:
     pickle.dump(accuracies, f)
 plot(accuracies)
-
