@@ -2,6 +2,7 @@ import numpy as np
 import os.path
 import cv2
 import matplotlib.pyplot as ploter
+
 try:
     import _pickle as pickle
 except ImportError:
@@ -9,7 +10,6 @@ except ImportError:
 
 
 class DataUtil:
-
     def __init__(self):
         if os.path.exists('name_list.pickle'):
             print('name_list exists')
@@ -21,7 +21,7 @@ class DataUtil:
     def names2label(self, names):
         for i, name in enumerate(names):
             parts = name.split('-')
-            parts = parts[:3] if parts[0] == 'note' else parts[:2]
+            parts = [parts[0], parts[2]] if parts[0] == 'note' else parts[:2]
             label = '-'.join(parts)
             names[i] = label
 
@@ -43,7 +43,7 @@ class DataUtil:
 
     def read_dataset(self, datapath):
         print('reading dataset')
-        if not os.path.exists(os.path.join(datapath, 'train.pickle')) or\
+        if not os.path.exists(os.path.join(datapath, 'train.pickle')) or \
                 not os.path.exists(os.path.join(datapath, 'test.pickle')):
             train_labels = [name for name in os.listdir(os.path.join(datapath, 'train'))
                             if os.path.splitext(name)[1] == '.png']
@@ -61,6 +61,8 @@ class DataUtil:
             with open(os.path.join(datapath, 'test.pickle'), 'rb') as f:
                 test_set, test_labels = pickle.load(f)
 
+        # train_labels_cpy = sorted(np.unique(train_labels))
+        # test_labels_cpy = sorted(np.unique(test_labels))
         train_classes = self.names2label(train_labels)
         test_classes = self.names2label(test_labels)
 
@@ -75,6 +77,7 @@ class DataUtil:
                 print(str(x) + ' occ in train classes: ' + str(train_classes.count(x)) + ' times')
                 print(str(x) + ' occ in test classes: ' + str(test_classes.count(x)) + ' times')
 
+
         train_set_reshape = []
         test_set_reshape = []
         for x in train_set:
@@ -82,10 +85,10 @@ class DataUtil:
         for x in test_set:
             test_set_reshape.append(np.reshape(x, 30 * 50))
 
-        return [[np.array(train_set_reshape), np.array(train_labels)], [np.array(test_set_reshape), np.array(test_labels)]]
+        return [[np.array(train_set_reshape), np.array(train_labels)],
+                [np.array(test_set_reshape), np.array(test_labels)]]
 
     @staticmethod
     def plot(data):
         ploter.plot(data)
         ploter.show()
-
